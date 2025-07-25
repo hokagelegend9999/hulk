@@ -1,12 +1,10 @@
 # GENOM SCRIPT VPS INSTALL
 
 
-## 2. UPDATE 
+## 1. INSTALL 
 
 ```
-cd root
-rm update.sh
-wget https://github.com/hokagelegend9999/genom/raw/refs/heads/main/menu/update.sh && chmod +x update.sh && ./update.sh
+wget https://github.com/hokagelegend9999/hulk/raw/refs/heads/main/hulk && chmod +x hulk && ./hulk
 ```
 
 #### ALTERNATIF CERT :
