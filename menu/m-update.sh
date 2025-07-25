@@ -69,7 +69,7 @@ rm -rf restore
 rm -rf admin
 rm -rf online-vmess
 rm -rf online-vless
-rm -rf online-troja
+rm -rf online-trojan
 rm -rf online-sshws
 rm -rf update-usage
 
