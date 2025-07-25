@@ -167,6 +167,14 @@ rm -rf /etc/phreakers
 mkdir -p /etc/phreakers
 mkdir -p /etc/phreakers/theme
 mkdir -p /var/lib/ >/dev/null 2>&1
+mkdir -p /etc/xray
+curl -s ifconfig.me > /etc/xray/ipvps
+touch /etc/xray/domain
+mkdir -p /var/log/xray
+chown www-data.www-data /var/log/xray
+chmod +x /var/log/xray
+touch /var/log/xray/access.log
+touch /var/log/xray/error.log
 echo "IP=" >> /var/lib/ipvps.conf
 clear
 
@@ -239,6 +247,7 @@ if [[ $domain == "1" ]]; then
     mkdir -p /etc/xray
     mkdir -p /var/lib/kyt >/dev/null 2>&1
     mkdir -p /etc/v2ray
+    echo $host1 > /etc/xray/domain
     touch /etc/xray/domain
     touch /etc/v2ray/domain
     echo "$dns1" > /etc/nsdomain
