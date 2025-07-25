@@ -168,14 +168,20 @@ mkdir -p /etc/phreakers
 mkdir -p /etc/phreakers/theme
 mkdir -p /var/lib/ >/dev/null 2>&1
 mkdir -p /etc/xray
+mkdir -p /root/.info
 curl -s ifconfig.me > /etc/xray/ipvps
 touch /etc/xray/domain
 mkdir -p /var/log/xray
+mkdir -p /root/.info
+ mkdir -p /etc/user-create
+curl -sS "ipinfo.io/org?token=7a814b6263b02c" > /root/.info/.isp
+curl "ipinfo.io/city?token=7a814b6263b02c" > /root/.city
 chown www-data.www-data /var/log/xray
 chmod +x /var/log/xray
 touch /var/log/xray/access.log
 touch /var/log/xray/error.log
 echo "IP=" >> /var/lib/ipvps.conf
+echo "echo -e 'Vps Config User Account'" >> /etc/user-create/user.log
 clear
 
 # --- Input Nama Pengguna ---
@@ -557,8 +563,6 @@ cd
 
 # --- Pengambilan Info Server & Pembersihan File ---
 curl -sS ifconfig.me > /etc/myipvps
-curl -s ipinfo.io/city?token=75082b4831f909 >> /etc/xray/city
-curl -s ipinfo.io/org?token=75082b4831f909 | cut -d " " -f 2-10 >> /etc/xray/isp
 rm /root/setup.sh >/dev/null 2>&1
 rm /root/slhost.sh >/dev/null 2>&1
 rm /root/ssh-vpn.sh >/dev/null 2>&1
