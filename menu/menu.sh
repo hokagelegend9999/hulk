@@ -320,11 +320,14 @@ else
     sts="${Error}"
 fi
 # TOTAL ACC CREATE VMESS WS
-vmess=$(grep -c -E "^#vmg " "/etc/xray/config.json")
+vmc=$(grep -c -E "^### " "/etc/xray/config.json")
+let vma=$vmc/2
 # TOTAL ACC CREATE  VLESS WS
-vless=$(grep -c -E "^#vlg " "/etc/xray/config.json")
+vlx=$(grep -c -E "^#& " "/etc/xray/config.json")
+let vla=$vlx/2
 # TOTAL ACC CREATE  TROJAN
-trtls=$(grep -c -E "^#trg " "/etc/xray/config.json")
+trx=$(grep -c -E "^#! " "/etc/xray/config.json")
+let trb=$trx/2
 # TOTAL ACC CREATE OVPN SSH
 total_ssh=$(grep -c -E "^### " "/etc/xray/ssh")
 #total_ssh="$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd | wc -l)"
@@ -356,9 +359,9 @@ echo -e "   $COLOR1╭═══════════════════�
 echo -e "            $COLOR1$NC${WH}    LIST ACCOUNT PREMIUM ${NC}"
 echo -e "   $COLOR1      ═════════════════════════════════ ${NC}"
 echo -e "            $COLOR1$NC${WH}    SSH     =  ${COLOR1}$total_ssh ${NC}${WH} ACCOUNT ${NC}"
-echo -e "            $COLOR1$NC${WH}    VMESS   =  ${COLOR1}$vmess ${NC}${WH} ACCOUNT ${NC}"
-echo -e "            $COLOR1$NC${WH}    VLESS   =  ${COLOR1}$vless ${NC}${WH} ACCOUNT ${NC}"
-echo -e "            $COLOR1$NC${WH}    TROJAN  =  ${COLOR1}$trtls ${NC}${WH} ACCOUNT${NC}"
+echo -e "            $COLOR1$NC${WH}    VMESS   =  ${COLOR1}$vma ${NC}${WH} ACCOUNT ${NC}"
+echo -e "            $COLOR1$NC${WH}    VLESS   =  ${COLOR1}$vla ${NC}${WH} ACCOUNT ${NC}"
+echo -e "            $COLOR1$NC${WH}    TROJAN  =  ${COLOR1}$trb ${NC}${WH} ACCOUNT${NC}"
 echo -e "   $COLOR1╰═════════════════════════════════════════════╯${NC}"
 echo -e "$COLOR1╭═══════════════════ • ${NC}${WH}LIST MENU${NC}${COLOR1} • ═════════════════╮${NC}"
 echo -e "$COLOR1│                                                   $COLOR1│ $NC"
