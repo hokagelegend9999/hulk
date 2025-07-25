@@ -1,0 +1,130 @@
+#!/bin/bash
+
+# =============================================
+#         [ KONFIGURASI & VARIABEL ]
+# =============================================
+# --- Warna ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+WH='\033[1;37m'
+
+# --- Path & Info Server ---
+CONFIG_FILE="/etc/xray/config.json"
+domain=$(cat /etc/xray/domain)
+# Tambahkan variabel lain yang Anda butuhkan di sini (ISP, CITY, dll)
+# ISP=$(cat /etc/xray/isp)
+# CITY=$(cat /etc/xray/city)
+
+# =============================================
+#               [ FUNGSI UTAMA ]
+# =============================================
+clear
+
+# --- 1. Input Data dari Pengguna ---
+echo -e "${GREEN}┌─────────────────────────────────────────────────┐${NC}"
+echo -e "${GREEN}│${WH}                 • Add Vmess Account •                 ${GREEN}│${NC}"
+echo -e "${GREEN}└─────────────────────────────────────────────────┘${NC}"
+echo ""
+
+# Loop untuk memastikan nama pengguna valid dan belum ada
+until [[ $user =~ ^[a-zA-Z0-9_.-]+$ && ${CLIENT_EXISTS} == '0' ]]; do
+    read -rp "User: " -e user
+    # Cek pengguna dengan jq, ini lebih andal daripada grep
+    if jq -e '.inbounds[].settings.clients[]? | select(.email == "'$user'")' "$CONFIG_FILE" > /dev/null; then
+        echo -e "${RED}Nama pengguna '$user' sudah ada. Silakan gunakan nama lain.${NC}"
+        CLIENT_EXISTS=1
+    else
+        CLIENT_EXISTS=0
+    fi
+done
+
+read -rp "Masa Aktif (hari): " masaaktif
+exp=$(date -d "$masaaktif days" +"%Y-%m-%d")
+uuid=$(/usr/local/bin/xray uuid)
+
+# --- 2. Proses Penambahan User dengan JQ ---
+echo ""
+echo -e "${YELLOW}Menambahkan pengguna ke config.json...${NC}"
+
+# Definisikan objek JSON untuk client baru
+new_client_json='{"id": "'$uuid'", "alterId": 0, "email": "'$user'"}'
+
+# Gunakan jq untuk memodifikasi file config
+# Ini akan menambahkan client baru ke SEMUA inbound yang protokolnya "vmess"
+jq '
+    ( .inbounds[] | select(.protocol == "vmess") .settings.clients += ['$new_client_json'] )
+' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+
+# Cek apakah jq berhasil, jika tidak, keluar.
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Gagal memodifikasi config.json. Silakan cek error di atas.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}Pengguna berhasil ditambahkan ke konfigurasi Xray!${NC}"
+
+# --- 3. Buat Link Konfigurasi ---
+# Link untuk VMess-WS (TLS)
+VMESS_WS=$(cat <<EOF
+{
+"v": "2",
+"ps": "${user}",
+"add": "${domain}",
+"port": "443",
+"id": "${uuid}",
+"aid": "0",
+"net": "ws",
+"path": "/vmess",
+"type": "none",
+"host": "${domain}",
+"tls": "tls"
+}
+EOF
+)
+
+# Link untuk VMess-gRPC (TLS)
+VMESS_GRPC=$(cat <<EOF
+{
+"v": "2",
+"ps": "${user}",
+"add": "${domain}",
+"port": "443",
+"id": "${uuid}",
+"aid": "0",
+"net": "grpc",
+"path": "vmess-grpc",
+"type": "none",
+"host": "${domain}",
+"tls": "tls"
+}
+EOF
+)
+
+vmesslink1="vmess://$(echo $VMESS_WS | base64 -w 0)"
+vmesslink3="vmess://$(echo $VMESS_GRPC | base64 -w 0)"
+
+# --- 4. Tampilkan Hasil ke Layar ---
+clear
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+echo -e "${WH}• Premium Vmess Account •${NC}"
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+echo -e "${WH}User            : ${GREEN}${user}${NC}"
+echo -e "${WH}Domain          : ${GREEN}${domain}${NC}"
+echo -e "${WH}UUID            : ${GREEN}${uuid}${NC}"
+echo -e "${WH}Masa Aktif      : ${GREEN}${masaaktif} Hari${NC}"
+echo -e "${WH}Expired         : ${GREEN}${exp}${NC}"
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+echo -e "${WH}Link Websocket TLS :${NC}"
+echo -e "${GREEN}${vmesslink1}${NC}"
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+echo -e "${WH}Link gRPC TLS      :${NC}"
+echo -e "${GREEN}${vmesslink3}${NC}"
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+
+# --- 5. Restart Xray ---
+echo ""
+echo -e "${YELLOW}Merestart layanan Xray...${NC}"
+systemctl restart xray
+echo -e "${GREEN}Selesai!${NC}"
