@@ -532,10 +532,8 @@ echo "${d}" >/etc/vmess/${user}
 fi
 echo "${iplim}" > /etc/vmess/${user}IP
 exp=`date -d "$masaaktif days" +"%Y-%m-%d"`
-sed -i '/#vmess$/a\#vm '"$user $exp"'\
-},{"id": "'""$uuid""'","alterId": '"0"',"email": "'""$user""'"' /etc/xray/config.json
-sed -i '/#vmessgrpc$/a\#vmg '"$user $exp $uuid"'\
-},{"id": "'""$uuid""'","alterId": '"0"',"email": "'""$user""'"' /etc/xray/config.json
+sed -i '/\/\/ VMESS-WS-END/i\,{"email": "'"$user"'", "id": "'"$uuid"'", "alterId": 0}\n\/\/vm '"$user $exp"'' /etc/xray/config.json
+sed -i '/\/\/ VMESS-GRPC-END/i\,{"email": "'"$user"'", "id": "'"$uuid"'", "alterId": 0}\n\/\/vmg '"$user $exp"'' /etc/xray/config.json
 cat> /etc/cron.d/trialvmess${user} << EOF
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
