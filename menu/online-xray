@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# =======================================================
+#             🎨 [ KONFIGURASI TAMPILAN ] 🎨
+# =======================================================
+# --- Warna Dasar ---
+export RED='\033[0;31m'
+export GREEN='\033[0;32m'
+export YELLOW='\033[0;33m'
+export BLUE='\033[0;34m'
+export CYAN='\033[0;36m'
+export WHITE='\033[97m'
+export NC='\033[0m' # No Color
+
+# --- Warna Latar Belakang & Gaya ---
+export BG_BLUE='\033[44m'
+export BOLD='\033[1m'
+# =======================================================
+
+clear
+
+# =======================================================
+#                       🖥️ [ HEADER ] 🖥️
+# =======================================================
+printf '%b\n' "${BLUE}┌───────────────────────────────────────────────┐${NC}"
+# PERBAIKAN: Menambahkan '\n' di akhir format string ini
+printf '%b\n' "${BLUE}│${BG_BLUE}${WHITE}${BOLD}      💻 MONITORING PENGGUNA XRAY 💻      ${NC}${BLUE}│${NC}"
+printf '%b\n' "${BLUE}└───────────────────────────────────────────────┘${NC}"
+printf '\n'
+# =======================================================
+
+# Inisialisasi variabel penghitung
+total_user=0
+online_users=0
+total_usage_gb=0
+
+# Ambil 500 baris log terakhir untuk pengecekan status
+LAST_LOGS=$(tail -n 500 /var/log/xray/access.log)
+
+# Loop untuk setiap jenis layanan (trojan, vless, vmess)
+for jenis in trojan vless vmess; do
+    dir="/etc/${jenis}/akun"
+    if [[ -d "$dir" ]]; then
+        for userfile in "$dir"/*; do
+            if [[ ! -f "$userfile" || "$userfile" == *log* ]]; then
+                continue
+            fi
+
+            username=$(grep -w "username" "$userfile" | cut -d= -f2)
+            [[ -z "$username" ]] && continue
+
+            limit_quota=$(grep -w "limit_quota" "$userfile" | cut -d= -f2)
+            usage_quota=$(grep -w "usage_quota" "$userfile" | cut -d= -f2)
+            
+            # --- Cek Status Online ---
+            is_online=false
+            if [[ "$jenis" == "trojan" ]]; then
+                if echo "$LAST_LOGS" | grep -qw "$username"; then
+                    is_online=true
+                fi
+            else
+                if echo "$LAST_LOGS" | grep -qw "email: $username"; then
+                    is_online=true
+                fi
+            fi
+
+            if [[ "$is_online" == true ]]; then
+                status_indicator="${GREEN}● Online${NC}"
+                online_users=$((online_users + 1))
+            else
+                status_indicator="${RED}● Offline${NC}"
+            fi
+
+            # --- Kalkulasi Kuota ---
+            used_num=$(echo "$usage_quota" | tr -dc '0-9.')
+            limit_num=$(echo "$limit_quota" | tr -dc '0-9.')
+            used_num=${used_num:-0}
+            limit_num=${limit_num:-0}
+
+            if [[ "$usage_quota" == *MB ]]; then
+                used_gb=$(awk "BEGIN {printf \"%.3f\", $used_num / 1024}")
+            else
+                used_gb=$(awk "BEGIN {printf \"%.3f\", $used_num}")
+            fi
+
+            if [[ "$limit_quota" == *GB ]] && (( $(echo "$limit_num > 0" | bc -l) )); then
+                remain_gb=$(awk "BEGIN {printf \"%.2f\", $limit_num - $used_gb}")
+            else
+                remain_gb="∞" # Unlimited
+            fi
+
+            # =======================================================
+            #                👤 [ KARTU PENGGUNA ] 👤
+            # =======================================================
+            printf " ${CYAN}┌─[ PENGGUNA: ${BOLD}${GREEN}%s${NC}${CYAN} ]${NC}\n" "$username"
+            printf " ${CYAN}│${NC} 🚦 ${WHITE}%-10s: %b\n" "Status" "$status_indicator"
+            printf " ${CYAN}│${NC} ⚡ ${WHITE}%-10s: ${CYAN}%s${NC}\n" "Tipe" "$jenis"
+            printf " ${CYAN}│${NC} 📈 ${WHITE}%-10s: ${YELLOW}%s${NC}\n" "Limit" "${limit_quota:-Unlimited}"
+            printf " ${CYAN}│${NC} 📥 ${WHITE}%-10s: ${RED}%s${NC}\n" "Terpakai" "${usage_quota:-0MB}"
+            printf " ${CYAN}│${NC} 📊 ${WHITE}%-10s: ${GREEN}%s GB${NC}\n" "Sisa" "$remain_gb"
+            printf " ${CYAN}└──────────────────────────────────────────${NC}\n\n"
+            # =======================================================
+
+            total_user=$((total_user + 1))
+            total_usage_gb=$(awk "BEGIN {printf \"%.3f\", $total_usage_gb + $used_gb}")
+        done
+    fi
+done
+
+# =======================================================
+#                   📊 [ RINGKASAN TOTAL ] 📊
+# =======================================================
+printf '%b' "${BLUE}┌─[ RINGKASAN ]───────────────────────────┐${NC}\n"
+printf "${BLUE}│${NC} 👥 ${WHITE}%-16s: ${GREEN}%-18s ${BLUE}│${NC}\n" "Total Pengguna" "$total_user"
+printf "${BLUE}│${NC} 🟢 ${WHITE}%-16s: ${GREEN}%-18s ${BLUE}│${NC}\n" "Pengguna Online" "$online_users"
+printf "${BLUE}│${NC} 💾 ${WHITE}%-16s: ${RED}%-18s ${BLUE}│${NC}\n" "Total Pemakaian" "$(printf "%.2f" $total_usage_gb)GB"
+printf '%b' "${BLUE}└───────────────────────────────────────────┘${NC}\n"
+# =======================================================
