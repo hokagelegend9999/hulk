@@ -165,9 +165,10 @@ echo "${d}" >/etc/vmess/${user}
 fi
 echo "${iplim}" >/etc/vmess/${user}IP
 exp=`date -d "$masaaktif days" +"%Y-%m-%d"`
-sed -i '/\/\/ VMESS-WS-END/i\,{"email": "'"$user"'", "id": "'"$uuid"'", "alterId": 0}\n#vm '"$user $exp"'' /etc/xray/config.json
+# Perintah untuk user VMess (WebSocket)
+sed -i '/\/\/ VMESS-WS-END/i\,{"email": "'"$user"'", "id": "'"$uuid"'", "alterId": 0}\n\/\/vm '"$user $exp"'' /etc/xray/config.json
 # Perintah untuk user VMess (gRPC)
-sed -i '/\/\/ VMESS-GRPC-END/i\,{"email": "'"$user"'", "id": "'"$uuid"'", "alterId": 0}\n#vmg '"$user $exp"'' /etc/xray/config.json
+sed -i '/\/\/ VMESS-GRPC-END/i\,{"email": "'"$user"'", "id": "'"$uuid"'", "alterId": 0}\n\/\/vmg '"$user $exp"'' /etc/xray/config.json
 asu=`cat<<EOF
 {
 "v": "2",
