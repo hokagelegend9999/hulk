@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# =============================================
+#         [ KONFIGURASI & VARIABEL ]
+# =============================================
+# --- Warna ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+WH='\033[1;37m'
+
+# --- Path & Info Server ---
+CONFIG_FILE="/etc/xray/config.json"
+USER_META_DIR="/etc/vmess/akun"
+domain=$(cat /etc/xray/domain)
+
+# =============================================
+#               [ FUNGSI UTAMA ]
+# =============================================
+clear
+
+# --- 1. Dapatkan Daftar Pengguna dari config.json ---
+# PERBAIKAN: Menggunakan metode yang lebih kompatibel untuk membuat array
+# Pertama, simpan output jq ke dalam sebuah variabel
+users_string=$(jq -r '.inbounds[] | select(.protocol == "vmess") .settings.clients[]?.email' "$CONFIG_FILE" | grep -v "null" | sort -u)
+
+# Kedua, baca variabel string tersebut ke dalam array
+# Ini menghindari error "unexpected token"
+mapfile -t users <<< "$users_string"
+
+# Hapus elemen array kosong terakhir jika ada
+if [[ -z "${users[-1]}" ]]; then
+    unset 'users[-1]'
+fi
+
+if [ ${#users[@]} -eq 0 ]; then
+    echo "Tidak ada pengguna VMess yang ditemukan."
+    read -n 1 -s -r -p "Tekan tombol apa saja untuk kembali..."
+    exit 1
+fi
+
+# --- 2. Tampilkan Daftar Pengguna dan Tanggal Kedaluwarsa ---
+echo -e "${GREEN}┌─────────────────────────────────────────────────┐${NC}"
+echo -e "${GREEN}│${WH}                 • Renew Vmess Account •                 ${GREEN}│${NC}"
+echo -e "${GREEN}└─────────────────────────────────────────────────┘${NC}"
+echo "Pilih pengguna yang ingin diperpanjang masa aktifnya:"
+echo ""
+printf "   %-5s %-20s %-15s\n" "No" "User" "Expired"
+echo "---------------------------------------------------"
+
+i=1
+for user in "${users[@]}"; do
+    # Baca tanggal expired dari file .exp
+    exp_date=$(cat "${USER_META_DIR}/${user}.exp" 2>/dev/null || echo "N/A")
+    printf "   %-5s %-20s %-15s\n" "$i)" "$user" "$exp_date"
+    i=$((i + 1))
+done
+echo "---------------------------------------------------"
+
+# --- 3. Pilih Pengguna dan Input Masa Aktif Baru ---
+read -rp "Pilih nomor pengguna (atau 0 untuk batal): " client_number
+
+if [[ "$client_number" == "0" ]]; then
+    exit 0
+fi
+
+# Validasi input harus angka dan dalam rentang yang valid
+if ! [[ "$client_number" =~ ^[0-9]+$ ]] || [[ "$client_number" -lt 1 ]] || [[ "$client_number" -gt ${#users[@]} ]]; then
+    echo "Pilihan tidak valid."
+    exit 1
+fi
+
+# Dapatkan nama user dari array berdasarkan nomor yang dipilih
+selected_user=${users[$((client_number-1))]}
+
+read -rp "Masukkan masa aktif tambahan (hari): " masaaktif
+
+# --- 4. Hitung dan Perbarui Tanggal Kedaluwarsa ---
+# Ambil tanggal kedaluwarsa saat ini
+current_exp_str=$(cat "${USER_META_DIR}/${selected_user}.exp" 2>/dev/null || date -d "0 days" +"%Y-%m-%d")
+
+# Hitung tanggal kedaluwarsa baru
+new_exp_date=$(date -d "$current_exp_str + $masaaktif days" +"%Y-%m-%d")
+
+# Tulis tanggal baru ke file .exp
+echo "$new_exp_date" > "${USER_META_DIR}/${selected_user}.exp"
+
+# --- 5. Tampilkan Hasil ---
+clear
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+echo -e "${WH}  Akun Berhasil Diperpanjang${NC}"
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+echo -e "${WH}Username      : ${GREEN}$selected_user${NC}"
+echo -e "${WH}Expired Baru  : ${GREEN}$new_exp_date${NC}"
+echo -e "${GREEN}◇━━━━━━━━━━━━━━━━━◇${NC}"
+
+# Tidak perlu restart Xray karena config.json tidak diubah
