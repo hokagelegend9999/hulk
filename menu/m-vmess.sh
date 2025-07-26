@@ -1120,147 +1120,55 @@ else
 echo "$(((bytes + 1073741823) / 1073741824)) GB"
 fi
 }
-function cek-vmess() {
-    clear
-    # Restart Xray jika log kurang dari 5
-    xrayy=$(cat /var/log/xray/access.log | wc -l)
-    [[ $xrayy -le 5 ]] && systemctl restart xray
-    
-    xraylimit
-    
-    # Get terminal dimensions
-    term_width=$(tput cols)
-    min_width=40  # Minimum terminal width
-    
-    # Check terminal width
-    if [[ $term_width -lt $min_width ]]; then
-        echo -e "${COLOR1}┌────────────────────────────────────────┐${NC}"
-        echo -e "${COLOR1}│ ${WH}Terminal too narrow! (min ${min_width} columns) ${COLOR1}│${NC}"
-        echo -e "${COLOR1}└────────────────────────────────────────┘${NC}"
-        read -n 1 -s -r -p "   Press any key to continue"
-        m-vmess
-        return
-    fi
-    
-    # Calculate dynamic widths
-    border_chars=6  # Borders and spaces
-    user_col_width=$(( (term_width - border_chars) * 10 / 100 ))
-    usage_col_width=$(( (term_width - border_chars) * 15 / 100 ))
-    
-    # Header
-    echo -e "${COLOR1}┌──────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${COLOR1}│ ${WH}${COLBG1}                   VMESS USER ONLINE                    ${NC}${COLOR1} │${NC}"
-    echo -e "${COLOR1}├──────────────────────────────────────────────────────────┤${NC}"
-    
-    # Column titles with dynamic width
-    printf "${COLOR1}│ ${CYAN}%-${user_col_width}s ${COLOR1}   ${CYAN}%-${usage_col_width}s${COLOR1}│${NC}\n" \
-    "        USERNAME" "          USAGE"
-    
-    echo -e "${COLOR1}├─────────────────────────────┼────────────────────────────┤${NC}"
-    
-    # Proses data
-    vm=($(cat /etc/xray/config.json | grep "^#vmg" | awk '{print $2}' | sort -u))
-    echo -n > /tmp/vm
-    TOTAL_ONLINE=0
-    
-    # Parsing log
-    for db1 in ${vm[@]}; do
-        logvm=$(cat /var/log/xray/access.log | grep -w "email: ${db1}" | tail -n 100)
-        while read a; do
-            if [[ -n ${a} ]]; then
-                set -- ${a}
-                ina="${7}"
-                inu="${2}"
-                anu="${3}"
-                enu=$(echo "${anu}" | sed 's/tcp://g' | sed '/^$/d' | cut -d. -f1,2,3)
-                now=$(tim2sec ${timenow})
-                client=$(tim2sec ${inu})
-                nowt=$(((${now} - ${client})))
-                
-                if [[ ${nowt} -lt 40 ]]; then
-                    if ! grep -qw "${ina}" /tmp/vm; then
-                        echo "${ina} ${inu} WIB : ${enu}" >> /tmp/vm
-                    fi
-                fi
-            fi
-        done <<< "${logvm}"
-    done
-    
-    # Tampilkan output
-    if [[ -s /tmp/vm ]]; then
-        for vmuser in ${vm[@]}; do
-            vmhas=$(grep -w "${vmuser}" /tmp/vm | wc -l)
-            if [[ ${vmhas} -gt 0 ]]; then
-                ((TOTAL_ONLINE++))
-                byt=$(cat /etc/limit/vmess/${vmuser})
-                gb=$(convert ${byt})
-                lim=$(cat /etc/vmess/${vmuser})
-                lim2=$(convert ${lim})
-                
-                # Truncate long usernames
-                display_user=$(echo "$vmuser" | cut -c 1-$((user_col_width-5)) )
-                [[ ${#vmuser} -gt $((user_col_width-5)) ]] && display_user="${display_user}.."
-                
-                printf "${COLOR1}│ ${WH}🔑 %-$((${user_col_width}-3))s ${COLOR1}${WH}📤 %-$((${usage_col_width}-3))s ${COLOR1}│${NC}\n" \
-                "${display_user}" \
-                "${gb} / ${lim2}"
-                
-                echo -e "${COLOR1}├──────────────────────────────────────────────────────────┤${NC}"
-            fi
-        done
-        
-        # Footer
-        footer_text="Total Online Users : ${TOTAL_ONLINE}"
-        footer_pad=$(( term_width - ${#footer_text} - 12 ))
-        printf "${COLOR1}│ ${WH}%s%${footer_pad}s ${COLOR1}│${NC}\n" "$footer_text" " "
-    else
-        no_user_text="                   No active users"
-        no_user_pad=$(( (term_width - ${#no_user_text} - 4) / 2 ))
-        printf "${COLOR1}│ ${WH}%s%${footer_pad}s ${COLOR1}${NC}\n" " " "$no_user_text" " "
-    fi
-    
-    echo -e "${COLOR1}└──────────────────────────────────────────────────────────┘${NC}"
-    echo ""
-    read -n 1 -s -r -p "              Press any key to back on menu"
-    m-vmess
-}
 function list-vmess(){
 clear
 NUMBER_OF_CLIENTS=$(grep -c -E "^\s*//vmg " "/etc/xray/config.json")
 if [[ ${NUMBER_OF_CLIENTS} == '0' ]]; then
 clear
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "$COLOR1 ${NC}${COLBG1}    ${WH}⇱ Config Vmess Account ⇲     ${NC} $COLOR1 $NC"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "$COLOR1╔════════════════════════════════════════════╗${NC}"
+echo -e "$COLOR1║   ${WH}🙁 Oops! No VMess Accounts Found 🙁   ${NC}${COLOR1}║${NC}"
+echo -e "$COLOR1╚════════════════════════════════════════════╝${NC}"
 echo ""
-echo "You have no existing clients!"
-echo ""
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 read -n 1 -s -r -p "Press any key to back on menu"
 m-vmess
 fi
+
 clear
+# Menghitung lebar kolom secara dinamis
+term_width=$(tput cols)
+let "user_width=(term_width * 40) / 100"
+let "exp_width=(term_width * 20) / 100"
+
+# Lebar kolom didefinisikan secara manual agar rapi
+user_width=30
+exp_width=15
+
+# Header
 echo ""
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "$COLOR1 ${NC}${COLBG1}    ${WH}⇱ Config Vmess Account ⇲     ${NC} $COLOR1 $NC"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo " Select the existing client to view the config"
-echo " ketik [0] kembali kemenu"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo "     No  User   Expired"
-grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 2-3 | nl -s ') '
-until [[ ${CLIENT_NUMBER} -ge 1 && ${CLIENT_NUMBER} -le ${NUMBER_OF_CLIENTS} ]]; do
-if [[ ${CLIENT_NUMBER} == '1' ]]; then
-read -rp "Select one client [1]: " CLIENT_NUMBER
-else
-read -rp "Select one client [1-${NUMBER_OF_CLIENTS}]: " CLIENT_NUMBER
-if [[ ${CLIENT_NUMBER} == '0' ]]; then
-m-vmess
-fi
-fi
+echo -e "$COLOR1╔════════════════════════════════════════════════════════╗${NC}"
+echo -e "$COLOR1║            ${WH}✨ V M E S S  A C C O U N T S ✨           ${NC}${COLOR1}║${NC}"
+echo -e "$COLOR1╠════════════════════════════════════════════════════════╝${NC}"
+echo -e "$COLOR1║ ${CYAN}Select a client to view config or [0] to exit${NC}"
+echo -e "$COLOR1╠════╦════════════════════════════════╦═════════════════╗${NC}"
+printf "$COLOR1║ No ║ %-${user_width}s ║ %-${exp_width}s ║\n" "👤 User" "🗓️ Expired"
+echo -e "$COLOR1╠════╬════════════════════════════════╬═════════════════╣${NC}"
+
+# Daftar User
+grep -E "^\s*//vmg " "/etc/xray/config.json" | awk '{print $2, $3}' | nl -w2 -s'. ' | while read -r num user exp; do
+    printf "$COLOR1║ %-2s ║ ${WH}%-${user_width}s${COLOR1} ║ ${WH}%-${exp_width}s${COLOR1} ║\n" "$num" "$user" "$exp"
 done
+echo -e "$COLOR1╚════╩════════════════════════════════╩═════════════════╝${NC}"
+# Input
+until [[ ${CLIENT_NUMBER} -ge 1 && ${CLIENT_NUMBER} -le ${NUMBER_OF_CLIENTS} ]]; do
+  read -rp "➡️ Select one client [1-${NUMBER_OF_CLIENTS}]: " CLIENT_NUMBER
+  if [[ ${CLIENT_NUMBER} == '0' ]]; then
+    m-vmess
+  fi
+done
+
+# Proses setelah user dipilih (tetap sama)
 clear
-user=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 2 | sed -n "${CLIENT_NUMBER}"p)
+user=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | awk '{print $2}' | sed -n "${CLIENT_NUMBER}"p)
 cat /etc/vmess/akun/log-create-${user}.log
 cat /etc/vmess/akun/log-create-${user}.log > /etc/notifakun
 sed -i 's/\x1B\[1;37m//g' /etc/notifakun
@@ -1270,10 +1178,10 @@ TEXT=$(cat /etc/notifakun)
 curl -s --max-time $TIMES -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 cd
 if [ ! -e /etc/tele ]; then
-echo -ne
+  echo -ne
 else
-echo "$TEXT" > /etc/notiftele
-bash /etc/tele
+  echo "$TEXT" > /etc/notiftele
+  bash /etc/tele
 fi
 read -n 1 -s -r -p "Press any key to back on menu"
 m-vmess
