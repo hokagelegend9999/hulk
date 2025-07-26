@@ -1008,85 +1008,110 @@ read -n 1 -s -r -p "Press any key to back on menu"
 m-vmess
 }
 function del-vmess(){
-clear
-NUMBER_OF_CLIENTS=$(grep -c -E "^\s*//vmg " "/etc/xray/config.json")
-if [[ ${NUMBER_OF_CLIENTS} == '0' ]]; then
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "$COLOR1 ${NC}${COLBG1}    ${WH}⇱ Delete Vmess Account ⇲     ${NC} $COLOR1 $NC"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-echo "You have no existing clients!"
-echo ""
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-read -n 1 -s -r -p "Press any key to back on menu"
-m-vmess
-fi
-clear
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "$COLOR1 ${NC}${COLBG1}    ${WH}⇱ Delete Vmess Account ⇲     ${NC} $COLOR1 $NC"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo " Select the existing client you want to remove"
-echo " ketik [0] kembali kemenu"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo "     No  User   Expired"
-grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 2-3 | nl -s ') '
-until [[ ${CLIENT_NUMBER} -ge 1 && ${CLIENT_NUMBER} -le ${NUMBER_OF_CLIENTS} ]]; do
-if [[ ${CLIENT_NUMBER} == '1' ]]; then
-read -rp "Select one client [1]: " CLIENT_NUMBER
-else
-read -rp "Select one client [1-${NUMBER_OF_CLIENTS}]: " CLIENT_NUMBER
-if [[ ${CLIENT_NUMBER} == '0' ]]; then
-m-vmess
-fi
-fi
-done
-user=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 2 | sed -n "${CLIENT_NUMBER}"p)
-exp=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 3 | sed -n "${CLIENT_NUMBER}"p)
-uuid=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 4 | sed -n "${CLIENT_NUMBER}"p)
-if [ ! -e /etc/vmess/akundelete ]; then
-echo "" > /etc/vmess/akundelete
-fi
-clear
-echo "### $user $exp $uuid" >> /etc/vmess/akundelete
-# 1. Hapus baris JSON user berdasarkan UUID-nya yang unik
-sed -i '/"id": "'"$uuid"'"/d' /etc/xray/config.json
-# 2. Hapus baris komentar yang sesuai
-sed -i '/\s*\/\/vmg '"$user"' '"$exp"'/d' /etc/xray/config.json
-rm /etc/vmess/${user}IP
-clear
-rm /home/vps/public_html/vmess-$user.txt >/dev/null 2>&1
-rm /etc/vmess/${user}IP >/dev/null 2>&1
-rm /etc/vmess/${user}login >/dev/null 2>&1
-systemctl restart xray > /dev/null 2>&1
-clear
-TEXT="
+    clear
+    NUMBER_OF_CLIENTS=$(grep -c -E "^\s*//vmg " "/etc/xray/config.json")
+    if [[ ${NUMBER_OF_CLIENTS} -eq 0 ]]; then
+        clear
+        echo -e "$COLOR1╔════════════════════════════════════════════╗${NC}"
+        echo -e "$COLOR1║   ${WH}🙁 Oops! No VMess Accounts Found 🙁   ${NC}${COLOR1}║${NC}"
+        echo -e "$COLOR1╚════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -n 1 -s -r -p "Press any key to back on menu"
+        m-vmess
+        return
+    fi
+
+    # Lebar kolom didefinisikan secara manual agar rapi
+    user_width=30
+    exp_width=15
+
+    # Header
+    clear
+    echo ""
+    echo -e "$COLOR1╔════════════════════════════════════════════════════════╗${NC}"
+    echo -e "$COLOR1║        ${WH}🗑️ D E L E T E  V M E S S  A C C O U N T 🗑️       ${NC}${COLOR1}║${NC}"
+    echo -e "$COLOR1╠════════════════════════════════════════════════════════╝${NC}"
+    echo -e "$COLOR1║ ${CYAN}Select the client you want to remove${NC}"
+    echo -e "$COLOR1╠════╦════════════════════════════════╦═════════════════╗${NC}"
+    printf "$COLOR1║ No ║ %-${user_width}s ║ %-${exp_width}s ║\n" "👤 User" "🗓️ Expired"
+    echo -e "$COLOR1╠════╬════════════════════════════════╬═════════════════╣${NC}"
+
+    # Daftar User (diperbaiki dengan awk)
+    grep -E "^\s*//vmg " "/etc/xray/config.json" | awk '{print $2, $3}' | nl -w2 -s'. ' | while read -r num user exp; do
+        printf "$COLOR1║ %-2s ║ ${WH}%-${user_width}s${COLOR1} ║ ${WH}%-${exp_width}s${COLOR1} ║\n" "$num" "$user" "$exp"
+    done
+    echo -e "$COLOR1╚════╩════════════════════════════════╩═════════════════╝${NC}"
+
+    # Input User
+    until [[ ${CLIENT_NUMBER} -ge 1 && ${CLIENT_NUMBER} -le ${NUMBER_OF_CLIENTS} ]]; do
+      read -rp "➡️ Select one client to delete [1-${NUMBER_OF_CLIENTS}] (0 to cancel): " CLIENT_NUMBER
+      if [[ ${CLIENT_NUMBER} == '0' ]]; then
+        m-vmess
+        return
+      fi
+    done
+
+    user=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | awk '{print $2}' | sed -n "${CLIENT_NUMBER}"p)
+    exp=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | awk '{print $3}' | sed -n "${CLIENT_NUMBER}"p)
+    uuid=$(grep -E "^\s*//vmg " "/etc/xray/config.json" | cut -d ' ' -f 4 | sed -n "${CLIENT_NUMBER}"p)
+
+    # Konfirmasi penghapusan
+    clear
+    echo ""
+    echo -e "You are about to delete this user:"
+    echo -e "  User    : ${CYAN}$user${NC}"
+    echo -e "  Expired : ${CYAN}$exp${NC}"
+    read -rp "Are you sure? [y/N]: " -e -i N CONFIRM
+    if [[ "$CONFIRM" != "y" ]]; then
+        echo "Deletion cancelled."
+        return
+    fi
+
+    # Proses penghapusan
+    if [ ! -e /etc/vmess/akundelete ]; then
+      echo "" > /etc/vmess/akundelete
+    fi
+    echo "### $user $exp $uuid" >> /etc/vmess/akundelete
+    sed -i "/\"id\": \"$uuid\"/d" /etc/xray/config.json
+    sed -i "/\s*\/\/vmg $user $exp/d" /etc/xray/config.json
+
+    # Hapus file-file terkait
+    rm -f /etc/vmess/${user}IP
+    rm -f /home/vps/public_html/vmess-$user.txt
+    rm -f /etc/vmess/${user}login
+
+    # Restart Xray
+    systemctl restart xray > /dev/null 2>&1
+
+    # Notifikasi
+    TEXT="
 <code>◇━━━━━━━━━━━━━━◇</code>
 <b>  XRAY VMESS DELETE</b>
 <code>◇━━━━━━━━━━━━━━◇</code>
-<b>DOMAIN   :</b> <code>${domain} </code>
-<b>ISP      :</b> <code>$ISP $CITY </code>
-<b>USERNAME :</b> <code>$user </code>
-<b>EXPIRED :</b> <code>$exp </code>
+<b>DOMAIN   :</b> <code>${domain}</code>
+<b>ISP      :</b> <code>$ISP $CITY</code>
+<b>USERNAME :</b> <code>$user</code>
+<b>EXPIRED  :</b> <code>$exp</code>
 <code>◇━━━━━━━━━━━━━━◇</code>
-<i>Succes Delete this Username...</i>
+<i>Success! This username has been deleted.</i>
 "
-curl -s --max-time $TIMES -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
-cd
-if [ ! -e /etc/tele ]; then
-echo -ne
-else
-echo "$TEXT" > /etc/notiftele
-bash /etc/tele
-fi
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo " Vmess Account Deleted Successfully"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo " Client Name : $user"
-echo " Expired On  : $exp"
-echo -e "$COLOR1━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-read -n 1 -s -r -p "Press any key to back on menu"
-m-vmess
+    curl -s --max-time $TIMES -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
+    if [ -e /etc/tele ]; then
+        echo "$TEXT" > /etc/notiftele
+        bash /etc/tele
+    fi
+
+    # Tampilan Hasil Akhir
+    clear
+    echo -e "$COLOR1╔════════════════════════════════════════════╗${NC}"
+    echo -e "$COLOR1║       ${WH}✔️ Account Successfully Deleted ✔️      ${NC}${COLOR1}║${NC}"
+    echo -e "$COLOR1╠════════════════════════════════════════════╝${NC}"
+    echo -e "$COLOR1║ Client Name : ${CYAN}$user${NC}"
+    echo -e "$COLOR1║ Expired On  : ${CYAN}$exp${NC}"
+    echo -e "$COLOR1╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    read -n 1 -s -r -p "Press any key to back on menu"
+    m-vmess
 }
 tim2sec() {
 mult=1
